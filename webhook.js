@@ -43,23 +43,64 @@ async function sendRegionalWeatherWebhook(regionId) {
       content: messageContent,
     };
 
-    // Send to Discord webhook
-    const response = await axios.post(regionConfig.webhookUrl, weatherMessage, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    // Send to all Discord webhooks for this region
+    const results = [];
+    for (let i = 0; i < regionConfig.webhookUrls.length; i++) {
+      const webhookUrl = regionConfig.webhookUrls[i];
+      try {
+        const response = await axios.post(webhookUrl, weatherMessage, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-    if (response.status === 204) {
-      logger.info(
-        `Weather update posted successfully for region: ${regionConfig.name}`
-      );
+        if (response.status === 204) {
+          logger.info(
+            `Weather update posted successfully to webhook ${i + 1}/${
+              regionConfig.webhookUrls.length
+            } for region: ${regionConfig.name}`
+          );
+          results.push({ webhookIndex: i + 1, success: true });
+        } else {
+          logger.warn(
+            `Unexpected response status: ${response.status} for webhook ${
+              i + 1
+            } in region: ${regionConfig.name}`
+          );
+          results.push({
+            webhookIndex: i + 1,
+            success: false,
+            status: response.status,
+          });
+        }
+      } catch (error) {
+        logger.error(
+          `Failed to send to webhook ${i + 1}/${
+            regionConfig.webhookUrls.length
+          } for region ${regionId}: ${error.message}`
+        );
+        results.push({
+          webhookIndex: i + 1,
+          success: false,
+          error: error.message,
+        });
+      }
+    }
+
+    // Check if all webhooks succeeded
+    const successful = results.filter((r) => r.success).length;
+    const failed = results.length - successful;
+
+    if (failed === 0) {
       console.log(
-        `✅ Weather update posted successfully for ${regionConfig.name}!`
+        `✅ Weather update posted successfully to all ${successful} webhook(s) for ${regionConfig.name}!`
       );
     } else {
-      logger.warn(
-        `Unexpected response status: ${response.status} for region: ${regionConfig.name}`
+      console.log(
+        `⚠️ Weather update posted to ${successful}/${results.length} webhook(s) for ${regionConfig.name}`
+      );
+      throw new Error(
+        `Failed to post to ${failed} webhook(s) for region ${regionId}`
       );
     }
   } catch (error) {

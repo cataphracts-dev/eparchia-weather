@@ -45,7 +45,8 @@ This keeps all weather updates organized in one thread instead of cluttering the
 5. Replace the example data with your own:
    - Change `"temperate_coastal"` to your region name (use underscores instead of spaces)
    - Change `"Temperate Coastal Region"` to your campaign's region name
-   - Replace `"https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"` with the webhook URL you copied from Discord in Step 1
+   - Replace the webhook URLs in the `webhookUrls` array with your Discord webhook URL(s) from Step 1
+   - You can have one or more webhook URLs - add more to post to multiple channels
    - Modify the weather conditions to match your world's climate
 6. Save the file
 
@@ -102,6 +103,135 @@ If you want a consolidated weekly forecast in a different channel:
 2. In your GitHub repository settings, add another secret called `WEEKLY_FORECAST_WEBHOOK_URL`
 3. Use the new webhook URL as the value
 
+## Managing Webhook Channels
+
+### Adding Channels to a Region
+
+Each region can post to multiple Discord channels. This is useful when you have multiple groups playing in the same region or want weather in both a player channel and a GM channel.
+
+**To add a channel to an existing region:**
+
+1. Open your `regions.json` file
+2. Find the region you want to add a channel to
+3. Change `webhookUrl` to `webhookUrls` (add an 's')
+4. Convert the single URL to an array with multiple URLs:
+
+**Before (single channel):**
+
+```json
+{
+  "regions": {
+    "temperate_coastal": {
+      "name": "Coastal Region",
+      "webhookUrl": "https://discord.com/api/webhooks/123456/abc123",
+      "seasonalWeather": { ... }
+    }
+  }
+}
+```
+
+**After (multiple channels):**
+
+```json
+{
+  "regions": {
+    "temperate_coastal": {
+      "name": "Coastal Region",
+      "webhookUrls": [
+        "https://discord.com/api/webhooks/123456/abc123",
+        "https://discord.com/api/webhooks/789012/def456",
+        "https://discord.com/api/webhooks/345678/ghi789"
+      ],
+      "seasonalWeather": { ... }
+    }
+  }
+}
+```
+
+5. Save the file
+6. Update your GitHub secret `REGIONS_CONFIG` with the new content
+7. Weather will now post to all channels for that region
+
+**Note:** The old `webhookUrl` format (single string) still works for backward compatibility, but `webhookUrls` (array) is recommended.
+
+### Moving Channels Between Regions
+
+If you need to move a Discord channel from one region to another (for example, if your campaign party travels to a different climate zone):
+
+**Step 1: Find the webhook URL to move**
+
+- Open your `regions.json` file
+- Locate the webhook URL in the current region's `webhookUrls` array
+- Copy the URL
+
+**Step 2: Remove from old region**
+
+```json
+"old_region": {
+  "name": "Old Region",
+  "webhookUrls": [
+    "https://discord.com/api/webhooks/123456/abc123",
+    "https://discord.com/api/webhooks/REMOVE_THIS/xyz789"  // ← Remove this one
+  ],
+  "seasonalWeather": { ... }
+}
+```
+
+**Step 3: Add to new region**
+
+```json
+"new_region": {
+  "name": "New Region",
+  "webhookUrls": [
+    "https://discord.com/api/webhooks/789012/def456",
+    "https://discord.com/api/webhooks/REMOVE_THIS/xyz789"  // ← Add it here
+  ],
+  "seasonalWeather": { ... }
+}
+```
+
+**Step 4: Update GitHub**
+
+- Save your `regions.json` file
+- Go to your GitHub repository → Settings → Secrets and variables → Actions
+- Click on `REGIONS_CONFIG`
+- Click "Update secret"
+- Paste the entire contents of your updated `regions.json` file
+- Click "Update secret"
+
+The channel will immediately start receiving weather for the new region on the next scheduled update.
+
+### Quick Reference: Webhook URL Management
+
+**Get a webhook URL from Discord:**
+
+1. Channel settings (⚙️) → Integrations → Webhooks → Create/Copy
+
+**Multiple channels in one region:**
+
+```json
+"webhookUrls": [
+  "https://discord.com/api/webhooks/URL1",
+  "https://discord.com/api/webhooks/URL2"
+]
+```
+
+**Single channel (backward compatible):**
+
+```json
+"webhookUrl": "https://discord.com/api/webhooks/URL"
+```
+
+**Remove a channel:**
+
+- Delete its webhook URL from the `webhookUrls` array
+- Update the `REGIONS_CONFIG` secret on GitHub
+
+**Duplicate weather to test channel:**
+
+- Add your test webhook URL to the same region's `webhookUrls` array
+- Both channels will receive identical weather updates
+
 ### Troubleshooting
 
 **No weather appears in Discord:**
@@ -143,45 +273,50 @@ Create `regions.json` in project root:
   "regions": {
     "my_region": {
       "name": "My Campaign Region",
-      "webhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL",
+      "webhookUrls": [
+        "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL_1",
+        "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL_2"
+      ],
       "seasonalWeather": {
         "spring": {
-          "dayConditions": ["Mild and sunny", "Light rain", "Overcast"],
-          "nightConditions": ["Clear and cool", "Light drizzle", "Cloudy"]
+          "conditions": ["Mild and sunny", "Light rain", "Overcast"],
+          "mechanicalImpacts": {
+            "Light rain": "Scouting range reduced by 1 hex"
+          }
         },
         "summer": {
-          "dayConditions": [
+          "conditions": [
             "Warm and sunny",
             "Hot with clear skies",
             "Thunderstorms"
           ],
-          "nightConditions": [
-            "Warm with clear skies",
-            "Mild and starry",
-            "Evening storms"
-          ]
+          "mechanicalImpacts": {
+            "Thunderstorms": "Movement speed reduced by 1 hex"
+          }
         },
         "autumn": {
-          "dayConditions": ["Cool and crisp", "Overcast with rain", "Windy"],
-          "nightConditions": ["Cool and crisp", "Steady rain", "Dense fog"]
+          "conditions": ["Cool and crisp", "Overcast with rain", "Windy"],
+          "mechanicalImpacts": {
+            "Overcast with rain": "Scouting range reduced by 1 hex"
+          }
         },
         "winter": {
-          "dayConditions": [
+          "conditions": [
             "Cold and frosty",
             "Overcast with sleet",
             "Light snow"
           ],
-          "nightConditions": [
-            "Frosty with clear skies",
-            "Sleet",
-            "Snow falling"
-          ]
+          "mechanicalImpacts": {
+            "Overcast with sleet": "Movement speed reduced by 1 hex"
+          }
         }
       }
     }
   }
 }
 ```
+
+**Note:** You can use a single webhook URL with `"webhookUrl": "..."` (backward compatible) or multiple URLs with `"webhookUrls": [...]` array format.
 
 ### 3. Local Testing
 
@@ -224,8 +359,25 @@ Edit `.github/workflows/daily-weather.yml` and `.github/workflows/weekly-forecas
 
 Weather conditions are defined in `seasonalWeather` objects within your `regions.json`. Each season requires:
 
-- `dayConditions`: Array of day weather descriptions
-- `nightConditions`: Array of night weather descriptions
+- `conditions`: Array of weather descriptions (biased toward earlier items)
+- `mechanicalImpacts` (optional): Object mapping specific conditions to game effects
+
+**Example:**
+
+```json
+"spring": {
+  "conditions": [
+    "Mild and sunny",        // Most common
+    "Partly cloudy",         // Common
+    "Light rain",            // Less common
+    "Thunderstorms"          // Rare
+  ],
+  "mechanicalImpacts": {
+    "Light rain": "Scouting range reduced by 1 hex",
+    "Thunderstorms": "Movement speed reduced by 1 hex, scouting range reduced by 2 hexes"
+  }
+}
+```
 
 ### Example Region Template
 

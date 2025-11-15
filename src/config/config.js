@@ -82,7 +82,13 @@ const getConfiguredRegions = () => {
   if (!regionsConfig.regions) return [];
 
   return Object.entries(regionsConfig.regions)
-    .filter(([_, region]) => region.webhookUrl) // Only include regions with webhook URLs in the JSON
+    .filter(([_, region]) => {
+      // Support both webhookUrls (array) and webhookUrl (single, for backward compatibility)
+      return (
+        (Array.isArray(region.webhookUrls) && region.webhookUrls.length > 0) ||
+        region.webhookUrl
+      );
+    })
     .map(([regionId, region]) => ({
       id: regionId,
       ...region,
@@ -97,14 +103,26 @@ const getRegionConfig = (regionId) => {
 
   const region = regionsConfig.regions[regionId];
 
-  // Check if webhook URL is configured in the JSON
-  if (!region.webhookUrl) {
-    throw new Error(`Webhook URL not configured for region '${regionId}'`);
+  // Normalize webhookUrls to always be an array
+  let webhookUrls = [];
+  if (Array.isArray(region.webhookUrls)) {
+    webhookUrls = region.webhookUrls.filter(
+      (url) => url && typeof url === "string"
+    );
+  } else if (region.webhookUrl && typeof region.webhookUrl === "string") {
+    // Backward compatibility: convert single webhookUrl to array
+    webhookUrls = [region.webhookUrl];
+  }
+
+  // Check if any webhook URLs are configured
+  if (webhookUrls.length === 0) {
+    throw new Error(`No webhook URLs configured for region '${regionId}'`);
   }
 
   return {
     id: regionId,
     ...region,
+    webhookUrls, // Always provide as array for consistent interface
   };
 };
 
@@ -117,8 +135,8 @@ const getWeeklyForecastWebhookUrl = () => {
 const validateRegionConfig = (regionId) => {
   const region = getRegionConfig(regionId);
 
-  if (!region.webhookUrl) {
-    throw new Error(`Webhook URL not configured for region '${regionId}'`);
+  if (!region.webhookUrls || region.webhookUrls.length === 0) {
+    throw new Error(`No webhook URLs configured for region '${regionId}'`);
   }
 
   return region;
@@ -132,8 +150,15 @@ const validateRegionDefinition = (regionId, regionData) => {
   if (!regionData.name) {
     errors.push(`Region '${regionId}' missing required field: name`);
   }
-  if (!regionData.webhookUrl) {
-    errors.push(`Region '${regionId}' missing required field: webhookUrl`);
+  // Support both webhookUrls (array) and webhookUrl (single, for backward compatibility)
+  const hasWebhookUrls =
+    Array.isArray(regionData.webhookUrls) && regionData.webhookUrls.length > 0;
+  const hasWebhookUrl =
+    regionData.webhookUrl && typeof regionData.webhookUrl === "string";
+  if (!hasWebhookUrls && !hasWebhookUrl) {
+    errors.push(
+      `Region '${regionId}' missing required field: webhookUrls (array) or webhookUrl (string)`
+    );
   }
 
   // Check seasonal weather structure
@@ -207,8 +232,10 @@ const validateAllRegions = () => {
 const createRegionTemplate = (regionId, regionName) => {
   return {
     name: regionName,
-    webhookUrl:
-      "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+    webhookUrls: [
+      "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_1/YOUR_WEBHOOK_TOKEN_1",
+      "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_2/YOUR_WEBHOOK_TOKEN_2",
+    ],
     seasonalWeather: {
       spring: {
         conditions: [
