@@ -8,6 +8,8 @@
     "test": "node test-webhook.js",
     "weekly": "node weekly-webhook.js",
     "test-weekly": "node test-weekly.js",
+    "advance": "node advance-webhook.js",
+    "test-advance": "node test-advance.js",
     "demo": "node demo-regional-weather.js",
     "create-region": "node create-region.js create",
     "validate-regions": "node create-region.js validate",

@@ -28,16 +28,14 @@ function dateToSeed(date, regionId = "default") {
   return year * 10000 + month * 100 + day + (regionHash % 1000);
 }
 
-// No legacy day/night or derived impacts support
-
-// Determine current season based on date
+// Determine current season based on date (Southern Hemisphere)
 const getSeason = (date) => {
   const month = date.getMonth() + 1; // getMonth() returns 0-11
 
-  if (month >= 3 && month <= 5) return "spring";
-  if (month >= 6 && month <= 8) return "summer";
-  if (month >= 9 && month <= 11) return "autumn";
-  return "winter"; // December, January, February
+  if (month >= 3 && month <= 5) return "autumn";
+  if (month >= 6 && month <= 8) return "winter";
+  if (month >= 9 && month <= 11) return "spring";
+  return "summer"; // December, January, February
 };
 
 // Helper: bias selection so earlier items are more likely
@@ -156,6 +154,17 @@ const getRegionalWeeklyForecast = (regionConfig) => {
   return getWeeklyForecast(regionConfig.seasonalWeather, regionConfig.id);
 };
 
+// Get weather for tomorrow (advance forecast)
+const getRegionalAdvanceForecast = (regionConfig) => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return getWeatherForDate(
+    tomorrow,
+    regionConfig.seasonalWeather,
+    regionConfig.id
+  );
+};
+
 // Map weather conditions to appropriate emojis
 const getWeatherEmoji = (condition, isNight = false) => {
   const conditionLower = condition.toLowerCase();
@@ -182,7 +191,10 @@ const getWeatherEmoji = (condition, isNight = false) => {
   ) {
     return "⛈️";
   }
-  if (conditionLower.includes("heavy") && conditionLower.includes("rain")) {
+  if (
+    (conditionLower.includes("heavy") && conditionLower.includes("rain")) ||
+    conditionLower.includes("downpour")
+  ) {
     return "🌧️";
   }
   if (
@@ -259,4 +271,5 @@ module.exports = {
   getWeatherEmoji,
   getRegionalWeatherUpdate,
   getRegionalWeeklyForecast,
+  getRegionalAdvanceForecast,
 };

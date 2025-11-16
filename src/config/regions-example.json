@@ -6,6 +6,9 @@
         "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_1/YOUR_TOKEN_1",
         "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_2/YOUR_TOKEN_2"
       ],
+      "advanceWebhookUrls": [
+        "https://discord.com/api/webhooks/YOUR_ADVANCE_WEBHOOK_ID/YOUR_ADVANCE_TOKEN"
+      ],
       "seasonalWeather": {
         "spring": {
           "conditions": [

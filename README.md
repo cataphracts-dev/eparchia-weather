@@ -103,6 +103,39 @@ If you want a consolidated weekly forecast in a different channel:
 2. In your GitHub repository settings, add another secret called `WEEKLY_FORECAST_WEBHOOK_URL`
 3. Use the new webhook URL as the value
 
+### Optional: Advance Forecast for GMs
+
+If you want certain channels (like GM planning channels) to receive **tomorrow's weather** in advance:
+
+1. Create a separate Discord webhook for your GM/planning channel
+2. In your `regions.json`, add an `advanceWebhookUrls` array:
+
+```json
+{
+  "regions": {
+    "your_region": {
+      "name": "Your Region",
+      "webhookUrls": [
+        "https://discord.com/api/webhooks/PLAYER_CHANNEL/TOKEN"
+      ],
+      "advanceWebhookUrls": [
+        "https://discord.com/api/webhooks/GM_CHANNEL/TOKEN"
+      ],
+      "seasonalWeather": { ... }
+    }
+  }
+}
+```
+
+3. Set up a second GitHub Actions workflow to run the advance forecast (see `ADVANCE-FORECAST.md` for details)
+
+**Result:**
+
+- Player channels get today's weather in the morning
+- GM channels get tomorrow's weather in the evening for planning
+
+See [ADVANCE-FORECAST.md](ADVANCE-FORECAST.md) for complete documentation.
+
 ## Managing Webhook Channels
 
 ### Adding Channels to a Region

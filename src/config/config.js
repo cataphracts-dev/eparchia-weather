@@ -114,6 +114,14 @@ const getRegionConfig = (regionId) => {
     webhookUrls = [region.webhookUrl];
   }
 
+  // Normalize advanceWebhookUrls to always be an array (optional)
+  let advanceWebhookUrls = [];
+  if (Array.isArray(region.advanceWebhookUrls)) {
+    advanceWebhookUrls = region.advanceWebhookUrls.filter(
+      (url) => url && typeof url === "string"
+    );
+  }
+
   // Check if any webhook URLs are configured
   if (webhookUrls.length === 0) {
     throw new Error(`No webhook URLs configured for region '${regionId}'`);
@@ -123,6 +131,7 @@ const getRegionConfig = (regionId) => {
     id: regionId,
     ...region,
     webhookUrls, // Always provide as array for consistent interface
+    advanceWebhookUrls, // Always provide as array (may be empty)
   };
 };
 
@@ -159,6 +168,19 @@ const validateRegionDefinition = (regionId, regionData) => {
     errors.push(
       `Region '${regionId}' missing required field: webhookUrls (array) or webhookUrl (string)`
     );
+  }
+
+  // Validate advanceWebhookUrls if it exists (optional)
+  if (regionData.advanceWebhookUrls !== undefined) {
+    if (!Array.isArray(regionData.advanceWebhookUrls)) {
+      errors.push(
+        `Region '${regionId}' advanceWebhookUrls must be an array if provided`
+      );
+    } else if (regionData.advanceWebhookUrls.length === 0) {
+      errors.push(
+        `Region '${regionId}' advanceWebhookUrls should not be an empty array (omit if not needed)`
+      );
+    }
   }
 
   // Check seasonal weather structure
@@ -235,6 +257,9 @@ const createRegionTemplate = (regionId, regionName) => {
     webhookUrls: [
       "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_1/YOUR_WEBHOOK_TOKEN_1",
       "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_2/YOUR_WEBHOOK_TOKEN_2",
+    ],
+    advanceWebhookUrls: [
+      "https://discord.com/api/webhooks/YOUR_ADVANCE_WEBHOOK_ID/YOUR_ADVANCE_TOKEN",
     ],
     seasonalWeather: {
       spring: {

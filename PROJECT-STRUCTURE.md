@@ -13,10 +13,13 @@ discord-weather-bot/
 ├── package-lock.json             # Dependency lock file
 ├── README.md                     # Project documentation
 ├── PROJECT-STRUCTURE.md          # This file
+├── ADVANCE-FORECAST.md           # Advance forecast feature documentation
 ├── webhook.js                    # Daily weather webhook
 ├── weekly-webhook.js             # Weekly forecast webhook
+├── advance-webhook.js            # Advance forecast webhook (tomorrow's weather)
 ├── test-webhook.js               # Local testing script for daily weather
 ├── test-weekly.js                # Local testing script for weekly forecast
+├── test-advance.js               # Local testing script for advance forecast
 ├── .github/
 │   ├── copilot-instructions.md   # GitHub Copilot coding instructions
 │   └── workflows/
@@ -45,14 +48,16 @@ The Discord Weather Webhook system generates deterministic weather updates for f
 - **Regional Support**: Different climate types with unique weather patterns
 - **Discord Integration**: Automatic posting via webhooks
 - **Dual Formats**: Daily updates and weekly forecasts
+- **Advance Forecasts**: Optional tomorrow's weather for GM/planning channels
 - **GitHub Actions**: Automated scheduling and deployment
 
 ## Key Files
 
 ### Entry Points
 
-- **`webhook.js`** - Daily weather update webhook
+- **`webhook.js`** - Daily weather update webhook (today's weather)
 - **`weekly-webhook.js`** - Weekly forecast webhook
+- **`advance-webhook.js`** - Advance forecast webhook (tomorrow's weather)
 
 ### Configuration
 
@@ -69,12 +74,19 @@ The Discord Weather Webhook system generates deterministic weather updates for f
 
 - **`test-webhook.js`** - Test daily weather updates locally
 - **`test-weekly.js`** - Test weekly forecasts locally
+- **`test-advance.js`** - Test advance forecasts locally
 
 ### Automation
 
 - **`.github/workflows/daily-weather.yml`** - Daily weather automation
 - **`.github/workflows/weekly-forecast.yml`** - Weekly forecast automation
 - **`.github/workflows/regional-weather.yml.example`** - Example regional setup
+
+### Documentation
+
+- **`README.md`** - Main project documentation and setup guide
+- **`ADVANCE-FORECAST.md`** - Advance forecast feature documentation
+- **`PROJECT-STRUCTURE.md`** - This file
 
 ## Regional Climate Types
 
