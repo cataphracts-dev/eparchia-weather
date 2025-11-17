@@ -46,9 +46,31 @@ jobs:
       - name: Send weather update
         if: steps.check-date.outputs.blackout == 'false'
         env:
+          # Channel definitions (webhook URLs mapped to channel IDs)
+          CHANNELS_CONFIG: ${{ secrets.CHANNELS_CONFIG }}
+
+          # Channel assignments (which channels go to which regions)
+          CHANNEL_ASSIGNMENTS_CONFIG: ${{ secrets.CHANNEL_ASSIGNMENTS_CONFIG }}
+
           # Regional configuration (JSON string containing all regions with webhook URLs)
           REGIONS_CONFIG: ${{ secrets.REGIONS_CONFIG }}
 
           # Weekly forecast webhook URL (for consolidated weekly forecasts)
           WEEKLY_FORECAST_WEBHOOK_URL: ${{ secrets.WEEKLY_FORECAST_WEBHOOK_URL }}
         run: npm start
+
+      - name: Send advance forecast
+        if: steps.check-date.outputs.blackout == 'false'
+        env:
+          # Channel definitions (webhook URLs mapped to channel IDs)
+          CHANNELS_CONFIG: ${{ secrets.CHANNELS_CONFIG }}
+
+          # Channel assignments (which channels go to which regions)
+          CHANNEL_ASSIGNMENTS_CONFIG: ${{ secrets.CHANNEL_ASSIGNMENTS_CONFIG }}
+
+          # Regional configuration (JSON string containing all regions with webhook URLs)
+          REGIONS_CONFIG: ${{ secrets.REGIONS_CONFIG }}
+
+          # Weekly forecast webhook URL (for consolidated weekly forecasts)
+          WEEKLY_FORECAST_WEBHOOK_URL: ${{ secrets.WEEKLY_FORECAST_WEBHOOK_URL }}
+        run: npm run advance
