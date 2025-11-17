@@ -1,0 +1,13 @@
+{
+  "channels": {
+    "example-player-channel": {
+      "webhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_1/YOUR_WEBHOOK_TOKEN_1"
+    },
+    "example-weather-channel": {
+      "webhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_2/YOUR_WEBHOOK_TOKEN_2"
+    },
+    "gm-forecast": {
+      "webhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID_3/YOUR_WEBHOOK_TOKEN_3"
+    }
+  }
+}

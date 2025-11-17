@@ -2,7 +2,53 @@ require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 
-// Load regional configurations with flexible file discovery
+// Helper function to try loading a JSON file from multiple locations
+const tryLoadJsonFile = (possiblePaths, fileDescription) => {
+  for (const filePath of possiblePaths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const config = JSON.parse(fs.readFileSync(filePath, "utf8"));
+        console.log(`[CONFIG] Loaded ${fileDescription} from: ${filePath}`);
+        return config;
+      }
+    } catch (error) {
+      console.warn(
+        `[CONFIG] Failed to load ${fileDescription} from ${filePath}: ${error.message}`
+      );
+    }
+  }
+  return null;
+};
+
+// Load channels configuration (webhook URLs)
+const loadChannelsConfig = () => {
+  const possiblePaths = [
+    path.join(process.cwd(), "channels.json"),
+    path.join(process.cwd(), "config", "channels.json"),
+    path.join(process.cwd(), "src", "config", "channels.json"),
+    path.join(__dirname, "channels.json"),
+    path.join(__dirname, "channels-example.json"),
+  ];
+
+  const config = tryLoadJsonFile(possiblePaths, "channels configuration");
+  return config || { channels: {} };
+};
+
+// Load channel assignments (which channels go to which regions)
+const loadChannelAssignments = () => {
+  const possiblePaths = [
+    path.join(process.cwd(), "channel-assignments.json"),
+    path.join(process.cwd(), "config", "channel-assignments.json"),
+    path.join(process.cwd(), "src", "config", "channel-assignments.json"),
+    path.join(__dirname, "channel-assignments.json"),
+    path.join(__dirname, "channel-assignments-example.json"),
+  ];
+
+  const config = tryLoadJsonFile(possiblePaths, "channel assignments");
+  return config || { assignments: {}, weeklyForecastChannel: null };
+};
+
+// Load regional weather configurations
 const loadRegionsConfig = () => {
   // 1. Try to load from REGIONS_CONFIG environment variable (for GitHub Actions)
   if (process.env.REGIONS_CONFIG) {
@@ -52,13 +98,92 @@ const loadRegionsConfig = () => {
   return { regions: {} };
 };
 
+// Load all configurations
+let channelsConfig = loadChannelsConfig();
+let channelAssignments = loadChannelAssignments();
 let regionsConfig = loadRegionsConfig();
+
+// Merge configurations: combine region weather data with channel assignments
+const mergeConfigurations = () => {
+  const merged = { regions: {} };
+
+  // For each region in the regions.json (weather data)
+  Object.entries(regionsConfig.regions || {}).forEach(
+    ([regionId, regionData]) => {
+      // Get channel assignments for this region
+      const assignments = channelAssignments.assignments[regionId] || {};
+
+      // Resolve channel IDs to webhook URLs
+      const webhookUrls = (assignments.channels || [])
+        .map((channelId) => {
+          const channel = channelsConfig.channels[channelId];
+          if (!channel) {
+            console.warn(
+              `[CONFIG] Channel '${channelId}' not found in channels.json for region '${regionId}'`
+            );
+            return null;
+          }
+          return channel.webhookUrl;
+        })
+        .filter((url) => url);
+
+      const advanceWebhookUrls = (assignments.advanceChannels || [])
+        .map((channelId) => {
+          const channel = channelsConfig.channels[channelId];
+          if (!channel) {
+            console.warn(
+              `[CONFIG] Advance channel '${channelId}' not found in channels.json for region '${regionId}'`
+            );
+            return null;
+          }
+          return channel.webhookUrl;
+        })
+        .filter((url) => url);
+
+      // Merge everything together
+      merged.regions[regionId] = {
+        ...regionData,
+        webhookUrls,
+        advanceWebhookUrls,
+        // Keep backward compatibility - if webhookUrls is set in regions.json, keep it
+        ...(regionData.webhookUrls && { webhookUrls: regionData.webhookUrls }),
+        ...(regionData.advanceWebhookUrls && {
+          advanceWebhookUrls: regionData.advanceWebhookUrls,
+        }),
+      };
+    }
+  );
+
+  return merged;
+};
+
+// Create the merged configuration
+regionsConfig = mergeConfigurations();
 
 // Build simplified config - only need the weekly forecast webhook URL
 const config = {
   // Consolidated weekly forecast webhook (all regions in one channel)
   WEEKLY_FORECAST_WEBHOOK_URL: process.env.WEEKLY_FORECAST_WEBHOOK_URL,
 };
+
+// Resolve weekly forecast webhook from channel assignments if not in env
+if (
+  !config.WEEKLY_FORECAST_WEBHOOK_URL &&
+  channelAssignments.weeklyForecastChannel
+) {
+  const channelId = channelAssignments.weeklyForecastChannel;
+  const channel = channelsConfig.channels[channelId];
+  if (channel && channel.webhookUrl) {
+    config.WEEKLY_FORECAST_WEBHOOK_URL = channel.webhookUrl;
+    console.log(
+      `[CONFIG] Resolved weekly forecast webhook from channel: ${channelId}`
+    );
+  } else {
+    console.warn(
+      `[CONFIG] Weekly forecast channel '${channelId}' not found in channels.json`
+    );
+  }
+}
 
 // Function to validate specific environment variables
 const validateConfig = (requiredVars = [], optionalVars = []) => {

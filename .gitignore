@@ -19,6 +19,15 @@ yarn-error.log*
 # Use REGIONS_CONFIG environment variable for GitHub Actions instead
 # See GITHUB-SECRETS-SETUP.md for deployment instructions
 regions.json
+regions-old.json.backup
+
+# Channel configuration (contains sensitive webhook URLs)
+# Keep channels-example.json in version control as a template
+channels.json
+
+# Channel assignments (can be version controlled if desired, but ignored by default for flexibility)
+# Remove from .gitignore if you want to version control channel assignments
+channel-assignments.json
 
 # OS files
 .DS_Store
