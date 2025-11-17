@@ -22,6 +22,22 @@ const tryLoadJsonFile = (possiblePaths, fileDescription) => {
 
 // Load channels configuration (webhook URLs)
 const loadChannelsConfig = () => {
+  // 1. Try to load from CHANNELS_CONFIG environment variable (for GitHub Actions)
+  if (process.env.CHANNELS_CONFIG) {
+    try {
+      const config = JSON.parse(process.env.CHANNELS_CONFIG);
+      console.log(
+        `[CONFIG] Loaded channels configuration from CHANNELS_CONFIG environment variable`
+      );
+      return config;
+    } catch (error) {
+      console.warn(
+        `[CONFIG] Failed to parse CHANNELS_CONFIG environment variable: ${error.message}`
+      );
+    }
+  }
+
+  // 2. Try to load from file
   const possiblePaths = [
     path.join(process.cwd(), "channels.json"),
     path.join(process.cwd(), "config", "channels.json"),
@@ -36,6 +52,22 @@ const loadChannelsConfig = () => {
 
 // Load channel assignments (which channels go to which regions)
 const loadChannelAssignments = () => {
+  // 1. Try to load from CHANNEL_ASSIGNMENTS_CONFIG environment variable (for GitHub Actions)
+  if (process.env.CHANNEL_ASSIGNMENTS_CONFIG) {
+    try {
+      const config = JSON.parse(process.env.CHANNEL_ASSIGNMENTS_CONFIG);
+      console.log(
+        `[CONFIG] Loaded channel assignments from CHANNEL_ASSIGNMENTS_CONFIG environment variable`
+      );
+      return config;
+    } catch (error) {
+      console.warn(
+        `[CONFIG] Failed to parse CHANNEL_ASSIGNMENTS_CONFIG environment variable: ${error.message}`
+      );
+    }
+  }
+
+  // 2. Try to load from file
   const possiblePaths = [
     path.join(process.cwd(), "channel-assignments.json"),
     path.join(process.cwd(), "config", "channel-assignments.json"),
