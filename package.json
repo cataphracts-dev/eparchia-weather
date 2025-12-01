@@ -1,7 +1,7 @@
 {
   "name": "discord-weather-webhook",
-  "version": "2.0.0",
-  "description": "A regional weather webhook service that posts daily weather updates for fictional campaigns to Discord.",
+  "version": "3.0.0",
+  "description": "A regional weather webhook service that posts daily weather updates for fictional campaigns to Discord. Configuration is managed via Google Sheets.",
   "main": "webhook.js",
   "scripts": {
     "start": "node webhook.js",
@@ -9,17 +9,12 @@
     "weekly": "node weekly-webhook.js",
     "test-weekly": "node test-weekly.js",
     "advance": "node advance-webhook.js",
-    "test-advance": "node test-advance.js",
-    "demo": "node demo-regional-weather.js",
-    "create-region": "node create-region.js create",
-    "validate-regions": "node create-region.js validate",
-    "region-help": "node create-region.js help",
-    "create-demo-regions": "node create-demo-regions.js",
-    "generate-secret": "node generate-github-secret.js"
+    "test-advance": "node test-advance.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "dotenv": "^16.0.0"
+    "dotenv": "^16.0.0",
+    "googleapis": "^166.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
@@ -28,7 +23,8 @@
     "discord",
     "bot",
     "weather",
-    "campaign"
+    "campaign",
+    "google-sheets"
   ],
   "author": "Your Name",
   "license": "MIT"

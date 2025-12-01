@@ -2,16 +2,98 @@ const {
   getRegionalWeatherUpdate,
   getWeatherEmoji,
 } = require("./src/services/weatherService");
-const {
-  getConfiguredRegions,
-  getRegionConfig,
-} = require("./src/config/config");
 const { logger } = require("./src/utils/logger");
+
+// Mock region configuration for testing (matches expected format from Google Sheets)
+const mockRegionsConfig = {
+  "Northern Eparchia": {
+    name: "Northern Eparchia",
+    webhookUrls: ["https://discord.com/api/webhooks/EXAMPLE_1/test"],
+    seasonalWeather: {
+      spring: {
+        conditions: [
+          "Mild spring day",
+          "Spring showers",
+          "Warming breezes",
+          "Gentle rains",
+          "Overcast and cool",
+        ],
+        mechanicalImpacts: {
+          "Spring showers": ["Light rain: -1 to ranged attacks beyond 30ft"],
+        },
+      },
+      summer: {
+        conditions: [
+          "Hot and sunny",
+          "Warm summer day",
+          "Thunderstorms",
+          "Humid and hazy",
+          "Clear skies",
+        ],
+        mechanicalImpacts: {
+          Thunderstorms: [
+            "Heavy rain and lightning: disadvantage on Perception checks",
+          ],
+        },
+      },
+      autumn: {
+        conditions: [
+          "Crisp autumn day",
+          "Fall rains",
+          "Overcast skies",
+          "Chilly winds",
+          "Foggy morning",
+        ],
+        mechanicalImpacts: {
+          "Foggy morning": ["Heavy obscurement beyond 60ft until midday"],
+        },
+      },
+      winter: {
+        conditions: [
+          "Cold and clear",
+          "Light snow",
+          "Heavy snowfall",
+          "Freezing rain",
+          "Bitter cold",
+        ],
+        mechanicalImpacts: {
+          "Heavy snowfall": ["Difficult terrain outdoors, -2 to Perception"],
+          "Freezing rain": [
+            "Slippery surfaces: DEX save or fall prone when moving fast",
+          ],
+        },
+      },
+    },
+  },
+  "Southern Highlands": {
+    name: "Southern Highlands",
+    webhookUrls: ["https://discord.com/api/webhooks/EXAMPLE_2/test"],
+    seasonalWeather: {
+      spring: {
+        conditions: ["Highland spring", "Mountain mist", "Cool mornings"],
+      },
+      summer: {
+        conditions: ["Alpine summer", "Clear mountain air", "Afternoon storms"],
+      },
+      autumn: {
+        conditions: ["Early frost", "Autumn winds", "Clear days"],
+      },
+      winter: {
+        conditions: ["Deep snow", "Mountain blizzard", "Frozen peaks"],
+        mechanicalImpacts: {
+          "Mountain blizzard": [
+            "Blinded beyond 15ft, difficult terrain, extreme cold",
+          ],
+        },
+      },
+    },
+  },
+};
 
 // Mock webhook function for testing
 async function mockSendWebhook(regionConfig, messageContent) {
   console.log(`\n🔧 MOCK WEBHOOK SEND TO: ${regionConfig.name}`);
-  console.log(`📡 Webhook URL: ${regionConfig.webhookUrl}`);
+  console.log(`📡 Webhook URLs: ${regionConfig.webhookUrls.join(", ")}`);
   console.log("📝 Message Content:");
   console.log("─".repeat(50));
   console.log(messageContent);
@@ -19,31 +101,15 @@ async function mockSendWebhook(regionConfig, messageContent) {
   return { status: 204 }; // Mock successful response
 }
 
-async function testRegionalWeatherWebhook(regionId) {
+async function testRegionalWeatherWebhook(regionName) {
   try {
-    // Load configuration from regions-example.json instead of regions.json
-    const fs = require("fs");
-    const path = require("path");
-
-    const exampleRegionsPath = path.join(
-      __dirname,
-      "src",
-      "config",
-      "regions-example.json"
-    );
-    const exampleConfig = JSON.parse(
-      fs.readFileSync(exampleRegionsPath, "utf8")
-    );
-
-    if (!exampleConfig.regions || !exampleConfig.regions[regionId]) {
-      throw new Error(
-        `Region '${regionId}' not found in example configuration`
-      );
+    if (!mockRegionsConfig[regionName]) {
+      throw new Error(`Region '${regionName}' not found in test configuration`);
     }
 
     const regionConfig = {
-      id: regionId,
-      ...exampleConfig.regions[regionId],
+      id: regionName,
+      ...mockRegionsConfig[regionName],
     };
 
     logger.info(`Testing weather update for region: ${regionConfig.name}`);
@@ -53,9 +119,7 @@ async function testRegionalWeatherWebhook(regionId) {
 
     // Build the weather message content
     let messageContent =
-      `📅 **Weather Update${
-        regionConfig.name ? ` - ${regionConfig.name}` : ""
-      }**\n` +
+      `📅 **Weather Update - ${regionConfig.name}**\n` +
       `**Date:** ${weather.date}\n` +
       `**Season:** ${
         weather.season.charAt(0).toUpperCase() + weather.season.slice(1)
@@ -84,10 +148,10 @@ async function testRegionalWeatherWebhook(regionId) {
     }
   } catch (error) {
     logger.error(
-      `TEST: Failed to send weather webhook for region ${regionId}: ${error.message}`
+      `TEST: Failed to send weather webhook for region ${regionName}: ${error.message}`
     );
     console.error(
-      `❌ TEST: Failed to send weather update for ${regionId}:`,
+      `❌ TEST: Failed to send weather update for ${regionName}:`,
       error.message
     );
   }
@@ -95,46 +159,18 @@ async function testRegionalWeatherWebhook(regionId) {
 
 async function testAllRegionalWebhooks() {
   try {
-    // Load configuration from regions-example.json instead of regions.json
-    const configModule = require("./src/config/config");
-    const fs = require("fs");
-    const path = require("path");
-
-    // Override the regions config with example data
-    const exampleRegionsPath = path.join(
-      __dirname,
-      "src",
-      "config",
-      "regions-example.json"
-    );
-    const exampleConfig = JSON.parse(
-      fs.readFileSync(exampleRegionsPath, "utf8")
-    );
-    configModule.regionsConfig = exampleConfig;
-
-    const configuredRegions = Object.entries(exampleConfig.regions)
-      .filter(([_, region]) => region.webhookUrl)
-      .map(([regionId, region]) => ({
-        id: regionId,
-        ...region,
-      }));
-
-    if (configuredRegions.length === 0) {
-      logger.warn("No regions configured with webhook URLs in example file");
-      console.log("⚠️ No regions configured with webhook URLs in example file");
-      return;
-    }
+    const regionNames = Object.keys(mockRegionsConfig);
 
     logger.info(
-      `Testing weather updates for ${configuredRegions.length} regions from example config`
+      `Testing weather updates for ${regionNames.length} mock regions`
     );
 
-    for (const region of configuredRegions) {
-      await testRegionalWeatherWebhook(region.id);
+    for (const regionName of regionNames) {
+      await testRegionalWeatherWebhook(regionName);
     }
 
     console.log(
-      `✅ TEST: All ${configuredRegions.length} regional weather updates tested successfully!`
+      `\n✅ TEST: All ${regionNames.length} regional weather updates tested successfully!`
     );
   } catch (error) {
     logger.error(`TEST: Failed to test regional webhooks: ${error.message}`);
@@ -144,10 +180,14 @@ async function testAllRegionalWebhooks() {
 
 // If this script is run directly
 if (require.main === module) {
-  const regionId = process.argv[2];
+  console.log("=".repeat(50));
+  console.log("Testing Daily Weather Webhook (Mock Mode)");
+  console.log("=".repeat(50));
 
-  if (regionId) {
-    testRegionalWeatherWebhook(regionId);
+  const regionName = process.argv[2];
+
+  if (regionName) {
+    testRegionalWeatherWebhook(regionName);
   } else {
     testAllRegionalWebhooks();
   }
@@ -156,4 +196,5 @@ if (require.main === module) {
 module.exports = {
   testRegionalWeatherWebhook,
   testAllRegionalWebhooks,
+  mockRegionsConfig,
 };

@@ -2,11 +2,8 @@ const {
   getRegionalWeeklyForecast,
   getWeatherEmoji,
 } = require("./src/services/weatherService");
-const {
-  getConfiguredRegions,
-  getRegionConfig,
-} = require("./src/config/config");
 const { logger } = require("./src/utils/logger");
+const { mockRegionsConfig } = require("./test-webhook");
 
 // Mock webhook function for testing
 async function mockSendDiscordMessage(webhookUrl, content) {
@@ -34,54 +31,26 @@ async function mockSendDiscordMessage(webhookUrl, content) {
 
 async function testConsolidatedWeeklyForecastWebhook() {
   try {
-    // Load configuration from regions-example.json instead of regions.json
-    const fs = require("fs");
-    const path = require("path");
-
-    const exampleRegionsPath = path.join(
-      __dirname,
-      "src",
-      "config",
-      "regions-example.json"
-    );
-    const exampleConfig = JSON.parse(
-      fs.readFileSync(exampleRegionsPath, "utf8")
-    );
-
-    const configuredRegions = Object.entries(exampleConfig.regions)
-      .filter(([_, region]) => region.webhookUrl)
-      .map(([regionId, region]) => ({
-        id: regionId,
-        ...region,
-      }));
-
-    if (configuredRegions.length === 0) {
-      logger.warn("No regions configured with webhook URLs in example file");
-      console.log("⚠️ No regions configured with webhook URLs in example file");
-      return;
-    }
+    const regionNames = Object.keys(mockRegionsConfig);
 
     logger.info(
-      `Testing consolidated weekly forecast for ${configuredRegions.length} regions from example config`
+      `Testing consolidated weekly forecast for ${regionNames.length} mock regions`
     );
 
     // Build consolidated forecast message
     let consolidatedMessage =
       "📅 **Weekly Weather Forecast - All Regions**\n\n";
 
-    for (const region of configuredRegions) {
+    for (const regionName of regionNames) {
       try {
         const regionConfig = {
-          id: region.id,
-          name: region.name,
-          seasonalWeather: region.seasonalWeather,
+          id: regionName,
+          ...mockRegionsConfig[regionName],
         };
 
         const weeklyForecast = getRegionalWeeklyForecast(regionConfig);
 
-        if (regionConfig.name) {
-          consolidatedMessage += `🌍 **${regionConfig.name}**\n\n`;
-        }
+        consolidatedMessage += `🌍 **${regionConfig.name}**\n\n`;
 
         weeklyForecast.forEach((dayWeather, index) => {
           const isToday = index === 0;
@@ -109,9 +78,9 @@ async function testConsolidatedWeeklyForecastWebhook() {
         consolidatedMessage += "─────────────────────────────\n\n";
       } catch (error) {
         logger.error(
-          `TEST: Failed to generate forecast for region ${region.id}: ${error.message}`
+          `TEST: Failed to generate forecast for region ${regionName}: ${error.message}`
         );
-        consolidatedMessage += `🌍 **${region.name || region.id}**\n`;
+        consolidatedMessage += `🌍 **${regionName}**\n`;
         consolidatedMessage += `❌ *Error generating forecast for this region*\n\n`;
         consolidatedMessage += "─────────────────────────────\n\n";
       }
@@ -142,7 +111,7 @@ async function testConsolidatedWeeklyForecastWebhook() {
         })`
       );
       console.log(
-        `✅ TEST: Consolidated weekly weather forecast would be posted successfully (${messageCount} message${
+        `\n✅ TEST: Consolidated weekly weather forecast would be posted successfully (${messageCount} message${
           messageCount > 1 ? "s" : ""
         })!`
       );
@@ -158,22 +127,15 @@ async function testConsolidatedWeeklyForecastWebhook() {
   }
 }
 
-async function testAllRegionalWeeklyForecasts() {
-  try {
-    logger.info("Testing consolidated weekly forecast for all regions");
-    await testConsolidatedWeeklyForecastWebhook();
-  } catch (error) {
-    logger.error(`TEST: Failed to send weekly forecast: ${error.message}`);
-    console.error("❌ TEST: Failed to send weekly forecast:", error.message);
-  }
-}
-
 // If this script is run directly
 if (require.main === module) {
-  testAllRegionalWeeklyForecasts();
+  console.log("=".repeat(50));
+  console.log("Testing Weekly Weather Forecast Webhook (Mock Mode)");
+  console.log("=".repeat(50));
+
+  testConsolidatedWeeklyForecastWebhook();
 }
 
 module.exports = {
-  testAllRegionalWeeklyForecasts,
   testConsolidatedWeeklyForecastWebhook,
 };

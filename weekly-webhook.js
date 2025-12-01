@@ -4,6 +4,7 @@ const {
   getWeatherEmoji,
 } = require("./src/services/weatherService");
 const {
+  loadConfiguration,
   getConfiguredRegions,
   getRegionConfig,
   getWeeklyForecastWebhookUrl,
@@ -222,8 +223,19 @@ async function sendConsolidatedWeeklyForecastWebhook() {
 
 // If this script is run directly (not imported)
 if (require.main === module) {
-  // Always use consolidated approach
-  sendAllRegionalWeeklyForecasts();
+  (async () => {
+    try {
+      // Load configuration from Google Sheets
+      await loadConfiguration();
+
+      // Always use consolidated approach
+      await sendAllRegionalWeeklyForecasts();
+    } catch (error) {
+      logger.error(`Failed to run weekly webhook: ${error.message}`);
+      console.error("❌ Failed to run weekly webhook:", error.message);
+      process.exit(1);
+    }
+  })();
 }
 
 module.exports = {

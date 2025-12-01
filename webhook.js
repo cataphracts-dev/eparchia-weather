@@ -4,6 +4,7 @@ const {
   getWeatherEmoji,
 } = require("./src/services/weatherService");
 const {
+  loadConfiguration,
   getConfiguredRegions,
   getRegionConfig,
 } = require("./src/config/config");
@@ -183,14 +184,25 @@ async function sendAllRegionalWebhooks() {
 
 // If this script is run directly (not imported)
 if (require.main === module) {
-  // Check if a specific region was provided as argument
-  const regionId = process.argv[2];
+  (async () => {
+    try {
+      // Load configuration from Google Sheets
+      await loadConfiguration();
 
-  if (regionId) {
-    sendRegionalWeatherWebhook(regionId);
-  } else {
-    sendAllRegionalWebhooks();
-  }
+      // Check if a specific region was provided as argument
+      const regionId = process.argv[2];
+
+      if (regionId) {
+        await sendRegionalWeatherWebhook(regionId);
+      } else {
+        await sendAllRegionalWebhooks();
+      }
+    } catch (error) {
+      logger.error(`Failed to run webhook: ${error.message}`);
+      console.error("❌ Failed to run webhook:", error.message);
+      process.exit(1);
+    }
+  })();
 }
 
 module.exports = {

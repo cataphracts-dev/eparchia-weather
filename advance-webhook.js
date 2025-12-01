@@ -4,82 +4,104 @@ const {
   getWeatherEmoji,
 } = require("./src/services/weatherService");
 const {
+  loadConfiguration,
   getConfiguredRegions,
   getRegionConfig,
+  getAdvanceForecastWebhookUrls,
 } = require("./src/config/config");
 const { logger } = require("./src/utils/logger");
 
-async function sendRegionalAdvanceForecastWebhook(regionId) {
+/**
+ * Send consolidated advance forecasts for all regions to all advance webhook URLs
+ */
+async function sendAllRegionalAdvanceForecasts() {
   try {
-    // Get region configuration
-    const regionConfig = getRegionConfig(regionId);
+    const advanceWebhookUrls = getAdvanceForecastWebhookUrls();
 
-    // Check if this region has any advance forecast webhooks configured
-    if (
-      !regionConfig.advanceWebhookUrls ||
-      regionConfig.advanceWebhookUrls.length === 0
-    ) {
-      logger.info(
-        `No advance forecast webhooks configured for region: ${regionConfig.name}`
-      );
-      return { success: true, skipped: true };
+    if (advanceWebhookUrls.length === 0) {
+      logger.info("No advance forecast webhook URLs configured - skipping");
+      console.log("ℹ️ No advance forecast webhook URLs configured - skipping");
+      return;
+    }
+
+    const configuredRegions = getConfiguredRegions();
+
+    if (configuredRegions.length === 0) {
+      logger.warn("No regions configured with webhook URLs");
+      console.log("⚠️ No regions configured with webhook URLs");
+      return;
     }
 
     logger.info(
-      `Sending advance weather forecast for region: ${regionConfig.name}`
+      `Sending advance forecasts for ${configuredRegions.length} regions to ${advanceWebhookUrls.length} webhook(s)`
     );
 
-    // Get weather data for tomorrow (single condition + impacts)
-    const weather = getRegionalAdvanceForecast(regionConfig);
+    // Build consolidated message for all regions
+    let consolidatedMessage =
+      "📅 **Tomorrow's Weather Forecast - All Regions**\n\n";
 
-    // Build the weather message content
-    let messageContent =
-      `📅 **Tomorrow's Weather Forecast${
-        regionConfig.name ? ` - ${regionConfig.name}` : ""
-      }**\n` +
-      `**Date:** ${weather.date}\n` +
-      `**Season:** ${
-        weather.season.charAt(0).toUpperCase() + weather.season.slice(1)
-      }\n` +
-      `${getWeatherEmoji(weather.condition, false)} **Weather:** ${
-        weather.condition
-      }\n`;
+    for (const region of configuredRegions) {
+      try {
+        const regionConfig = getRegionConfig(region.id);
+        const weather = getRegionalAdvanceForecast(regionConfig);
 
-    // Add mechanical impacts if any
-    if (Array.isArray(weather.impacts) && weather.impacts.length > 0) {
-      weather.impacts.forEach((impact) => {
-        messageContent += `⚠️ ${impact}\n`;
-      });
+        consolidatedMessage += `🌍 **${regionConfig.name}**\n`;
+        consolidatedMessage += `**Date:** ${weather.date}\n`;
+        consolidatedMessage += `**Season:** ${
+          weather.season.charAt(0).toUpperCase() + weather.season.slice(1)
+        }\n`;
+        consolidatedMessage += `${getWeatherEmoji(
+          weather.condition,
+          false
+        )} **Weather:** ${weather.condition}\n`;
+
+        // Add mechanical impacts if any
+        if (Array.isArray(weather.impacts) && weather.impacts.length > 0) {
+          weather.impacts.forEach((impact) => {
+            consolidatedMessage += `⚠️ ${impact}\n`;
+          });
+        }
+
+        consolidatedMessage += "\n─────────────────────────────\n\n";
+      } catch (error) {
+        logger.error(
+          `Failed to generate advance forecast for region ${region.id}: ${error.message}`
+        );
+        consolidatedMessage += `🌍 **${region.name || region.id}**\n`;
+        consolidatedMessage += `❌ *Error generating forecast for this region*\n\n`;
+        consolidatedMessage += "─────────────────────────────\n\n";
+      }
     }
 
-    // Format the message for Discord webhook
-    const weatherMessage = {
-      content: messageContent,
-    };
+    // Add footer
+    consolidatedMessage +=
+      "*Advance weather forecast for tomorrow - all campaign regions*";
 
-    // Send to all advance forecast Discord webhooks for this region
+    // Send to all advance webhook URLs
     const results = [];
-    for (let i = 0; i < regionConfig.advanceWebhookUrls.length; i++) {
-      const webhookUrl = regionConfig.advanceWebhookUrls[i];
+    for (let i = 0; i < advanceWebhookUrls.length; i++) {
+      const webhookUrl = advanceWebhookUrls[i];
       try {
-        const response = await axios.post(webhookUrl, weatherMessage, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await axios.post(
+          webhookUrl,
+          { content: consolidatedMessage },
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
 
         if (response.status === 204) {
           logger.info(
             `Advance forecast posted successfully to webhook ${i + 1}/${
-              regionConfig.advanceWebhookUrls.length
-            } for region: ${regionConfig.name}`
+              advanceWebhookUrls.length
+            }`
           );
           results.push({ webhookIndex: i + 1, success: true });
         } else {
           logger.warn(
             `Unexpected response status: ${
               response.status
-            } for advance webhook ${i + 1} in region: ${regionConfig.name}`
+            } for advance webhook ${i + 1}`
           );
           results.push({
             webhookIndex: i + 1,
@@ -90,8 +112,8 @@ async function sendRegionalAdvanceForecastWebhook(regionId) {
       } catch (error) {
         logger.error(
           `Failed to send to advance webhook ${i + 1}/${
-            regionConfig.advanceWebhookUrls.length
-          } for region ${regionId}: ${error.message}`
+            advanceWebhookUrls.length
+          }: ${error.message}`
         );
         results.push({
           webhookIndex: i + 1,
@@ -101,113 +123,24 @@ async function sendRegionalAdvanceForecastWebhook(regionId) {
       }
     }
 
-    // Check if all webhooks succeeded
+    // Log summary
     const successful = results.filter((r) => r.success).length;
     const failed = results.length - successful;
 
     if (failed === 0) {
+      logger.info(
+        `Advance forecast posted successfully to all ${successful} webhook(s)`
+      );
       console.log(
-        `✅ Advance forecast posted successfully to all ${successful} webhook(s) for ${regionConfig.name}!`
+        `✅ Advance forecast posted successfully to all ${successful} webhook(s)!`
       );
-    } else {
-      console.log(
-        `⚠️ Advance forecast posted to ${successful}/${results.length} webhook(s) for ${regionConfig.name}`
-      );
-      throw new Error(
-        `Failed to post to ${failed} advance webhook(s) for region ${regionId}`
-      );
-    }
-
-    return { success: true, skipped: false };
-  } catch (error) {
-    logger.error(
-      `Failed to send advance forecast webhook for region ${regionId}: ${error.message}`
-    );
-    console.error(
-      `❌ Failed to send advance forecast for ${regionId}:`,
-      error.message
-    );
-    throw error; // Re-throw to allow caller to handle
-  }
-}
-
-async function sendAllRegionalAdvanceForecasts() {
-  try {
-    const configuredRegions = getConfiguredRegions();
-
-    if (configuredRegions.length === 0) {
-      logger.warn("No regions configured with webhook URLs");
-      console.log("⚠️ No regions configured with webhook URLs");
-      return;
-    }
-
-    logger.info(
-      `Checking advance forecast webhooks for ${configuredRegions.length} regions`
-    );
-
-    const results = [];
-    let skippedCount = 0;
-
-    for (const region of configuredRegions) {
-      try {
-        const result = await sendRegionalAdvanceForecastWebhook(region.id);
-        if (result.skipped) {
-          skippedCount++;
-        }
-        results.push({
-          regionId: region.id,
-          success: true,
-          skipped: result.skipped,
-        });
-      } catch (error) {
-        results.push({
-          regionId: region.id,
-          success: false,
-          skipped: false,
-          error: error.message,
-        });
-      }
-    }
-
-    // Log summary
-    const successful = results.filter((r) => r.success && !r.skipped).length;
-    const failed = results.filter((r) => !r.success).length;
-
-    if (failed === 0) {
-      if (successful > 0) {
-        logger.info(
-          `All ${successful} advance forecast(s) sent successfully (${skippedCount} region(s) skipped - no advance webhooks configured)`
-        );
-        console.log(
-          `✅ All ${successful} advance forecast(s) sent successfully!`
-        );
-        if (skippedCount > 0) {
-          console.log(
-            `ℹ️ ${skippedCount} region(s) skipped - no advance webhooks configured`
-          );
-        }
-      } else {
-        logger.info(
-          "All regions skipped - no advance forecast webhooks configured"
-        );
-        console.log(
-          "ℹ️ All regions skipped - no advance forecast webhooks configured"
-        );
-      }
     } else {
       logger.warn(
-        `${successful} successful, ${failed} failed, ${skippedCount} skipped advance forecasts`
+        `Advance forecast: ${successful} successful, ${failed} failed`
       );
       console.log(
-        `⚠️ ${successful} successful, ${failed} failed advance forecasts`
+        `⚠️ Advance forecast: ${successful} successful, ${failed} failed`
       );
-
-      // Log failures
-      results
-        .filter((r) => !r.success)
-        .forEach((result) => {
-          logger.error(`Failed region ${result.regionId}: ${result.error}`);
-        });
     }
 
     // Exit with error code if any failed
@@ -226,17 +159,20 @@ async function sendAllRegionalAdvanceForecasts() {
 
 // If this script is run directly (not imported)
 if (require.main === module) {
-  // Check if a specific region was provided as argument
-  const regionId = process.argv[2];
+  (async () => {
+    try {
+      // Load configuration from Google Sheets
+      await loadConfiguration();
 
-  if (regionId) {
-    sendRegionalAdvanceForecastWebhook(regionId);
-  } else {
-    sendAllRegionalAdvanceForecasts();
-  }
+      await sendAllRegionalAdvanceForecasts();
+    } catch (error) {
+      logger.error(`Failed to run advance webhook: ${error.message}`);
+      console.error("❌ Failed to run advance webhook:", error.message);
+      process.exit(1);
+    }
+  })();
 }
 
 module.exports = {
-  sendRegionalAdvanceForecastWebhook,
   sendAllRegionalAdvanceForecasts,
 };
