@@ -131,7 +131,7 @@ function parseCommanderDatabase(data) {
 }
 
 /**
- * Parse the Weather Regions sheet (contains two tables)
+ * Parse the Weather Regions sheet (contains two tables side by side)
  * @param {string[][]} data - Raw sheet data
  * @returns {{ seasonalWeather: Object, mechanicalImpacts: Object }}
  */
@@ -140,9 +140,8 @@ function parseWeatherRegions(data) {
     throw new Error("Weather Regions sheet is empty or has no data");
   }
 
-  // Find the two tables by looking for their header rows
-  let regionalWeatherStart = -1;
-  let mechanicalImpactsStart = -1;
+  // Find the header row by looking for "Region" in column A
+  let headerRowIndex = -1;
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
@@ -157,43 +156,28 @@ function parseWeatherRegions(data) {
         headers.some((h) => h.includes("spring")) &&
         headers.some((h) => h.includes("summer"))
       ) {
-        regionalWeatherStart = i;
-      }
-    }
-
-    // Look for the mechanical impacts table header
-    if (firstCell === "condition" && row.length >= 2) {
-      const secondCell = row[1]?.toLowerCase().trim() || "";
-      if (secondCell.includes("mechanical") || secondCell.includes("impact")) {
-        mechanicalImpactsStart = i;
+        headerRowIndex = i;
+        break;
       }
     }
   }
 
-  if (regionalWeatherStart === -1) {
+  if (headerRowIndex === -1) {
     throw new Error(
       'Weather Regions sheet missing regional weather table (looking for "Region | Spring Weather | Summer Weather | ..." header)'
     );
   }
 
-  if (mechanicalImpactsStart === -1) {
-    throw new Error(
-      'Weather Regions sheet missing mechanical impacts table (looking for "Condition | Mechanical Impact" header)'
-    );
-  }
-
-  // Parse regional weather table
+  // Parse regional weather table (stops at first empty row in column A)
   const seasonalWeather = parseRegionalWeatherTable(
     data,
-    regionalWeatherStart,
-    mechanicalImpactsStart
+    headerRowIndex,
+    data.length
   );
 
-  // Parse mechanical impacts table
-  const mechanicalImpacts = parseMechanicalImpactsTable(
-    data,
-    mechanicalImpactsStart
-  );
+  // Parse mechanical impacts from columns to the right (same header row)
+  // The "Condition | Mechanical Impact" columns are beside the weather columns
+  const mechanicalImpacts = parseMechanicalImpactsTable(data, headerRowIndex);
 
   return { seasonalWeather, mechanicalImpacts };
 }
@@ -263,7 +247,7 @@ function parseRegionalWeatherTable(data, startRow, endRow) {
 }
 
 /**
- * Parse the mechanical impacts table
+ * Parse the mechanical impacts table (columns to the right of the weather table)
  * @param {string[][]} data - Full sheet data
  * @param {number} startRow - Row index where table starts (header row)
  * @returns {Object} - Map of condition to mechanical impact string
@@ -277,9 +261,10 @@ function parseMechanicalImpactsTable(data, startRow) {
   );
 
   if (conditionIndex === -1 || impactIndex === -1) {
-    throw new Error(
-      "Mechanical impacts table missing Condition or Mechanical Impact column"
+    logger.warn(
+      "Mechanical impacts columns not found in header row - weather will be generated without mechanical impacts"
     );
+    return {};
   }
 
   const mechanicalImpacts = {};
