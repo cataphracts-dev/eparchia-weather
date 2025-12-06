@@ -18,20 +18,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Send weekly weather forecast
         env:
-          # Channel definitions (webhook URLs mapped to channel IDs)
-          CHANNELS_CONFIG: ${{ secrets.CHANNELS_CONFIG }}
+          # Google Sheets API credentials (JSON service account key)
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
 
-          # Channel assignments (which channels go to which regions)
-          CHANNEL_ASSIGNMENTS_CONFIG: ${{ secrets.CHANNEL_ASSIGNMENTS_CONFIG }}
-
-          # Regional configuration (JSON string containing all regions with webhook URLs)
-          REGIONS_CONFIG: ${{ secrets.REGIONS_CONFIG }}
+          # Link to the Google Sheet with configuration
+          GOOGLE_SHEET_LINK: ${{ secrets.GOOGLE_SHEET_LINK }}
 
           # Weekly forecast webhook URL (for consolidated weekly forecasts)
           WEEKLY_FORECAST_WEBHOOK_URL: ${{ secrets.WEEKLY_FORECAST_WEBHOOK_URL }}
